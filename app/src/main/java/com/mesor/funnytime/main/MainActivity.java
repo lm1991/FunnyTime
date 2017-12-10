@@ -1,14 +1,13 @@
 package com.mesor.funnytime.main;
 
+import android.Manifest;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.support.v7.widget.StaggeredGridLayoutManager;
-import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.widget.StaggeredGridLayoutManager;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -17,50 +16,113 @@ import android.widget.LinearLayout;
 import com.jcodecraeer.xrecyclerview.XRecyclerView;
 import com.mesor.funnytime.R;
 import com.mesor.funnytime.base.BaseActivity;
+import com.mesor.funnytime.main.model.MainPresenter;
+import com.mesor.funnytime.main.model.MainView;
+import com.mesor.funnytime.main.model.Media;
+
+import java.util.List;
 
 import butterknife.BindView;
 
 public class MainActivity extends BaseActivity
-        implements NavigationView.OnNavigationItemSelectedListener {
+        implements NavigationView.OnNavigationItemSelectedListener, MainView, XRecyclerView.LoadingListener {
 
     @BindView(R.id.recyclerView)
     XRecyclerView xRecyclerView;
+    @BindView((R.id.toolbar))
+    Toolbar toolbar;
+    @BindView(R.id.fab)
+    FloatingActionButton fab;
+
+    private MainPresenter mainPresenter;
+
+    private MainAdapter mainAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
+        fab.setOnClickListener(view -> {
         });
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.rootView);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.addDrawerListener(toggle);
         toggle.syncState();
 
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
-        initView();
+        xRecyclerView.setLayoutManager(new StaggeredGridLayoutManager(2, LinearLayout.VERTICAL));
+        xRecyclerView.setLoadingListener(this);
+        initPresenter();
     }
 
-    void initView() {
-        xRecyclerView.setLayoutManager(new StaggeredGridLayoutManager(2, LinearLayout.VERTICAL));
-        xRecyclerView.setAdapter(new MainAdapter(this));
+    void initPresenter() {
+        mainPresenter = new MainPresenter();
+        presenter = mainPresenter;
+    }
+
+    void initRecyclerView() {
+        mayRequestPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE, new OnRequestPermissionSuccessListener() {
+            @Override
+            public void onSuccess() {
+                xRecyclerView.refresh();
+                mainPresenter.refreshMediaList();
+            }
+
+            @Override
+            public void onFailed() {
+                prompt(R.string.prompt_permission_storage, () -> initRecyclerView());
+            }
+        });
+    }
+
+    @Override
+    public void refresh(List<Media> list) {
+        if (mainAdapter == null) {
+            mainAdapter = new MainAdapter(this, media -> {
+                //TODO
+            });
+            xRecyclerView.setAdapter(mainAdapter);
+        }
+        mainAdapter.setContent(list);
+    }
+
+    @Override
+    public void onLoadMore() {
+        mainPresenter.loadMoreMedia();
+    }
+
+    @Override
+    public void onRefresh() {
+        mainPresenter.refreshMediaList();
+    }
+
+    @Override
+    public void stopLoading() {
+        xRecyclerView.refreshComplete();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mainAdapter == null || mainAdapter.getItemCount() == 0) {
+            initRecyclerView();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        xRecyclerView.refreshComplete();
+        super.onPause();
     }
 
     @Override
     public void onBackPressed() {
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.rootView);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
@@ -70,19 +132,14 @@ public class MainActivity extends BaseActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
         }
@@ -93,24 +150,16 @@ public class MainActivity extends BaseActivity
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
-        // Handle navigation view item clicks here.
         int id = item.getItemId();
-
         if (id == R.id.nav_camera) {
-            // Handle the camera action
         } else if (id == R.id.nav_gallery) {
-
         } else if (id == R.id.nav_slideshow) {
-
         } else if (id == R.id.nav_manage) {
-
         } else if (id == R.id.nav_share) {
-
         } else if (id == R.id.nav_send) {
-
         }
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.rootView);
         drawer.closeDrawer(GravityCompat.START);
         return true;
     }

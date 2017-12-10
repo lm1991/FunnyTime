@@ -6,12 +6,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.bumptech.glide.Glide;
 import com.mesor.funnytime.R;
+import com.mesor.funnytime.main.model.Media;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by mesor on 2017/11/23.
@@ -20,18 +22,26 @@ import butterknife.ButterKnife;
 public class MainAdapter extends RecyclerView.Adapter<MainAdapter.ViewHolder> {
 
     private final Context context;
+    private final OnMediaSelectListener onMediaSelectListener;
+    private List<Media> list;
 
-    public MainAdapter(Context context) {
+    private final int minHeight, maxHeight;
+
+    public MainAdapter(Context context, OnMediaSelectListener onMediaSelectListener) {
         this.context = context;
+        this.onMediaSelectListener = onMediaSelectListener;
+        this.list = new ArrayList<>();
+        int width = context.getResources().getDisplayMetrics().widthPixels >> 1;
+        width -= 3 * context.getResources().getDisplayMetrics().density;
+        minHeight = width;
+        maxHeight = width << 1;
     }
 
-    String[] urls = {
-            "http://imgsrc.baidu.com/image/c0%3Dshijue1%2C0%2C0%2C294%2C40/sign=4c3b2306ba51f819e5280b09b2dd2098/8718367adab44aed5b5a1bc9b91c8701a18bfb83.jpg",
-            "http://imgsrc.baidu.com/image/c0%3Dshijue1%2C0%2C0%2C294%2C40/sign=a6730bdcdf62853586edda62f8861cb3/e4dde71190ef76c69acc8a059716fdfaaf516785.jpg",
-            "http://c.hiphotos.baidu.com/image/pic/item/54fbb2fb43166d222510e4874c2309f79052d2ba.jpg",
-            "http://f.hiphotos.baidu.com/image/pic/item/c2cec3fdfc0392452b0c121c8d94a4c27d1e256c.jpg",
-            "http://b.hiphotos.baidu.com/image/pic/item/b812c8fcc3cec3fddd5e33bfdf88d43f86942793.jpg"
-    };
+    public void setContent(List<Media> list) {
+        this.list.clear();
+        this.list.addAll(list);
+        notifyDataSetChanged();
+    }
 
     @Override
     public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -40,25 +50,47 @@ public class MainAdapter extends RecyclerView.Adapter<MainAdapter.ViewHolder> {
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
-        int height = 500;
-        if(position % 5 == 2 || position % 5 == 3) height = 200;
-        ViewGroup.LayoutParams layoutParams = holder.imageView.getLayoutParams();
-        layoutParams.height = height;
-        Glide.with(context).load(urls[position % 5]).into(holder.imageView).onLoadStarted(context.getDrawable(R.drawable.ic_launcher_background));
+        Media media = list.get(position);
+        int height = media.getHeight() * minHeight / media.getWidth();
+        if (height > maxHeight) height = maxHeight;
+        else if (height < minHeight) height = minHeight;
+        if (holder.height != height) {
+            ViewGroup.LayoutParams layoutParams = holder.coverView.getLayoutParams();
+            layoutParams.height = height;
+        }
+        holder.height = height;
+        Glide.with(context).load(media.getCoverPath()).into(holder.coverView).onLoadStarted(context.getResources().getDrawable(R.drawable
+                .ic_launcher_background));
+        Glide.with(context).load(media.getAuthorAvatar()).into(holder.avatarView);
+        holder.like.setText(String.valueOf(media.getLikeCount()));
+        //TODO like icon
+        holder.itemView.setOnClickListener(view -> {
+            if(onMediaSelectListener == null) return;
+            Media selectMedia = (Media) view.getTag();
+            onMediaSelectListener.onSelect(selectMedia);
+        });
     }
 
     @Override
     public int getItemCount() {
-        return 50;
+        return list.size();
     }
 
     class ViewHolder extends RecyclerView.ViewHolder {
 
-        ImageView imageView;
+        ImageView coverView, avatarView;
+        TextView like;
+        int height = 0;
 
         public ViewHolder(View itemView) {
             super(itemView);
-            imageView = itemView.findViewById(R.id.imageView);
+            coverView = itemView.findViewById(R.id.imageView);
+            avatarView = itemView.findViewById(R.id.avatar);
+            like = itemView.findViewById(R.id.like);
         }
+    }
+
+    interface OnMediaSelectListener {
+        void onSelect(Media media);
     }
 }
